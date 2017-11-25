@@ -6,13 +6,13 @@ This allows for the save_post action to execute. If using a plugin like [Auto Up
 
 When using this tool, you are essentially clicking update on every post.
 
-# Using this Tool
+## Using this Tool
 
 Backup your database! 
 
 Access the WP Dashboard, and under tools you will see Bulk Save. Select the Post Types you want to update. 
 
-# How I use it.
+## How I use it
 
 This plugin was built to specifically bulk run [Auto Upload Images](https://wordpress.org/plugins/auto-upload-images/) on 1800+ posts. Auto Upload Images only works when you save the post, so if you want to use it on every post you either have to bulk edit groups of them(which results in timesouts) or you have to save each one individually(waste of life). So that's why I wrote this script. I'm sure it could be faster but it gets the job done.
 
