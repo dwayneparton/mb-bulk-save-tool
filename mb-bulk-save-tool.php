@@ -22,6 +22,7 @@ class MbBulkSaveTool {
 		load_plugin_textdomain( 'mb-bulk-save-tool' );
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 		add_action( 'wp_ajax_mb_bst_process', array( $this, 'ajax_update_post' ) );
+		add_action( 'mb_bulk_save_actions', array( $this, 'update_posts' ));
 		// Allow people to change what capability is required to use this plugin
 		$this->capability = apply_filters( 'tools_update_posts_cap', 'manage_options' );
 	}
@@ -66,24 +67,20 @@ class MbBulkSaveTool {
 				}
 				?>
 				</ul>
-				<button class="button" type="submit">Refresh</button>
+				<button class="button" type="submit">Save</button>
 				<p><input id="mb-bulk-save-tool-show-advanced" type="checkbox" name="show_advanced" value="true"><small>Advanced: Show All Post Types</small></p>
 			</form>
 			<hr />
 			<h2>Process</h2>
 			<p>The button below will update <?php echo $j_decoded->count; ?> of the follow post types: <?php echo implode(', ',$post_types); ?>.</p>
-			<button id="mb_bst_start" class="button primary">Start</button>
+			<button id="mb_bst_start" class="button primary">Run</button>
 			<p>Leaving this page will terminate the process</p>
 			<div class="mb-bulk-save-tool__progress">
 				<div class="mb-bulk-save-tool__progress-status">0 of <?php echo $j_decoded->count; ?></div>
 				<div class="mb-bulk-save-tool__progress-fill"></div>
 			</div>
 			<div>
-				<?php
-					// $hook_name = 'save_post';
-					// global $wp_filter;
-					// var_dump( $wp_filter[$hook_name] );
-				?>
+
 			</div>
 			<script type="text/javascript">
 				jQuery(document).ready(function($){
@@ -112,7 +109,7 @@ class MbBulkSaveTool {
 							success: function( response ) {
 								console.log(id);
 								console.log(response);
-								$('#mb_bst_log').prepend('<li class="success">'+response.success+'</li>');
+								$('#mb_bst_log').prepend('<li class="'+response.type+'">'+response.message+'</li>');
 							},
 							error: function( response ) {
 								console.log(id);
@@ -195,6 +192,44 @@ class MbBulkSaveTool {
 
 			</style>
 		</div>
+		<hr />
+		<div>
+			<h2>Functions that will run:</h2>
+			<?php $this::list_attached_actions(); ?>
+		</div>
+		<?php
+	}
+
+	// Just for Debugging..show what will run when update_post happens
+	private static function list_attached_actions(){
+		global $wp_filter;
+		$filters = array();
+		foreach ($wp_filter as $key => $value) {
+			if ($key == 'mb_bulk_save_actions'){
+				foreach ($value->callbacks as $priority => $actions) {
+					foreach ($actions as $action_key => $action_value) {
+						$message = "";
+						if(is_object($action_value['function'][0])){
+							$message .= 'Class: '. get_class($action_value['function'][0]).' | ';
+						}
+							$message .= 'Function: '.$action_value['function'][1];
+						$filters[$key][] = $message;
+					}
+				}
+			}
+		}
+		?>
+		<ul>
+		<?php foreach ($filters as $key => $value): ?>	
+			<li><strong><?php echo $key; ?></strong>
+				<ol>
+				<?php foreach ($value as $string): ?>	
+					<li><?php echo $string; ?></li>
+				<?php endforeach; ?>
+				</ol>
+			</li>
+		<?php endforeach; ?>
+		</ul>
 		<?php
 	}
 
@@ -215,28 +250,37 @@ class MbBulkSaveTool {
 		return json_encode ($json);
 	}
 
+	// Action for updating posts
+	public function update_posts($post){
+		// Args to update
+		$update_args = array(
+			'ID' => $post->ID,
+		);
+		// Update the Post
+		$updated_post = wp_update_post( apply_filters('mb_bulk_save_update_post_args', $update_args), true );						  
+		// If this fails, then it just means that nothing was changed (old value == new value)
+		if (is_wp_error($updated_post)) {
+			$errors = $updated_post->get_error_messages();
+			die( json_encode( array( 'type' => 'error', 'message' => implode("|",$errors))));
+		}
+	}
 
 	// Process a single post ID (this is an AJAX handler)
 	public function ajax_update_post() {
 		@error_reporting( 0 ); // Don't break the JSON result
 		header( 'Content-type: application/json' );
-		$id = (int) $_REQUEST['id'];
-		$post = get_post( $id );
-
-		if ( ! current_user_can( $this->capability ) )
-			$this->die_json_error_msg( $post->ID, __( "Your user account doesn't have permission to update posts", 'mb-bulk-save-tool' ) );
-
-		@set_time_limit( 900 ); // 5 minutes per post should be PLENTY
-
-		// If this fails, then it just means that nothing was changed (old value == new value)
-		//wp_update_post( $post );
-		$updated_post = wp_update_post( $post, true );						  
-		if (is_wp_error($updated_post)) {
-			$errors = $updated_post->get_error_messages();
-			die( json_encode( array( 'error' => implode("|",$errors))));
+		$post_id = (int) $_REQUEST['id'];
+		$post = get_post( $post_id );
+		// Make sure user has permission
+		if ( ! current_user_can( $this->capability ) ){
+			die( json_encode( array( 'type' => 'error', 'message' =>  __( "Your user account doesn't have permission to update posts", 'mb-bulk-save-tool' ))));
 		}
-
-		die( json_encode( array( 'success' => sprintf( __( '&quot;%1$s&quot; (ID %2$s) was successfully updated in %3$s seconds.', 'regenerate-thumbnails' ), esc_html( get_the_title( $post->ID ) ), $post->ID, timer_stop() ) ) ) );
+		// 5 minutes per post should be PLENTY
+		@set_time_limit( 900 );
+		// Actions to run
+		do_action('mb_bulk_save_actions', $post);
+		// Success Messages
+		die( json_encode( array( 'type' => 'success', 'message' => sprintf( __( '&quot;%1$s&quot; (ID %2$s) was successfully updated in %3$s seconds.', 'regenerate-thumbnails' ), esc_html( get_the_title( $post->ID ) ), $post->ID, timer_stop() ) ) ) );
 	}
 }
 
