@@ -20,16 +20,16 @@ This plugin was built to specifically bulk run [Auto Upload Images](https://word
 
 ###Examples
 
-'''
+```
 add_action( 'mb_bulk_save_actions', 'my_custom_action');
 function my_custom_action($post){
   //This would update custom_meta_key for post 1 to have a value of "new_value1"
   update_post_meta( $post->ID, 'custom_meta_key', 'new_value'.$post->ID);
 }
-'''
+```
 
 This would regenerate all post slugs, but there the update posts will be built in, and have the $update_args can be filtered.
-'''
+```
 add_action( 'mb_bulk_save_actions', 'mb_update_post_slugs');
 function mb_update_post_slugs(){
 	// Args to update
@@ -45,7 +45,7 @@ function mb_update_post_slugs(){
 		die( json_encode( array( 'type' => 'error', 'message' => implode("|",$errors))));
 	}
 }
-
+```
 
 ## Disclaimer
 
