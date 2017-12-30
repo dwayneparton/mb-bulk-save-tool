@@ -18,7 +18,7 @@ mb_bulk_save_actions passes the post variable.
 
 This plugin was built to specifically bulk run [Auto Upload Images](https://wordpress.org/plugins/auto-upload-images/) on 1800+ posts. Auto Upload Images only works when you save the post, so if you want to use it on every post you either have to bulk edit groups of them(which results in timesouts) or you have to save each one individually(waste of life). So that's why I wrote this script. I'm sure it could be faster but it gets the job done.
 
-### A couplt examples
+### A couple examples
 
 ```
 add_action( 'mb_bulk_save_actions', 'my_custom_action');
